@@ -8,7 +8,7 @@ dependencies {
     implementation project(':transaction-module')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
