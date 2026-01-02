@@ -9,5 +9,4 @@ public class WirebarleyApplication {
     public static void main(String[] args) {
         SpringApplication.run(WirebarleyApplication.class, args);
     }
-
 }
