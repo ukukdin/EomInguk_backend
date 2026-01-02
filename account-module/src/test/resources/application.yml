@@ -15,6 +15,5 @@ spring:
 
 logging:
   level:
-    root: WARN
-    com.wirebarley: INFO
     org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
