@@ -1,1 +1,5 @@
 rootProject.name = 'wirebarley-backend-assignment'
+include 'common-module'
+include 'account-module'
+include 'transaction-module'
+include 'application'
