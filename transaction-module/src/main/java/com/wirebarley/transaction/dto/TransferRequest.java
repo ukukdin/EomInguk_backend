@@ -23,10 +23,13 @@ public class TransferRequest {
     @DecimalMin(value = "1", message = "이체 금액은 1원 이상이어야 합니다.")
     private BigDecimal amount;
 
+    private String idempotencyKey;
+
     @Builder
-    public TransferRequest(String fromAccountNumber, String toAccountNumber, BigDecimal amount) {
+    public TransferRequest(String fromAccountNumber, String toAccountNumber, BigDecimal amount, String idempotencyKey) {
         this.fromAccountNumber = fromAccountNumber;
         this.toAccountNumber = toAccountNumber;
         this.amount = amount;
+        this.idempotencyKey = idempotencyKey;
     }
 }

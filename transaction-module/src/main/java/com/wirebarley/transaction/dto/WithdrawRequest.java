@@ -20,9 +20,12 @@ public class WithdrawRequest {
     @DecimalMin(value = "1", message = "출금 금액은 1원 이상이어야 합니다.")
     private BigDecimal amount;
 
+    private String idempotencyKey;
+
     @Builder
-    public WithdrawRequest(String accountNumber, BigDecimal amount) {
+    public WithdrawRequest(String accountNumber, BigDecimal amount, String idempotencyKey) {
         this.accountNumber = accountNumber;
         this.amount = amount;
+        this.idempotencyKey = idempotencyKey;
     }
 }

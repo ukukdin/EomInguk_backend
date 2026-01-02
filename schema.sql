@@ -38,25 +38,36 @@ CREATE TABLE accounts (
 -- =====================================================
 -- 모든 거래 내역을 저장하는 테이블
 -- - type: 입금(DEPOSIT), 출금(WITHDRAWAL), 이체출금(TRANSFER_OUT), 이체입금(TRANSFER_IN)
+-- - owner_account_id: 이 거래의 주체 계좌 (조회 최적화용, 인덱스 적용)
 -- - from_account_id: 출금 계좌 (입금 시 NULL)
 -- - to_account_id: 입금 계좌 (출금 시 NULL)
--- - balance_after: 거래 후 잔액 (해당 계좌 기준)
+-- - balance_after: 거래 후 잔액 (owner_account 기준)
+-- - status: 거래 상태 (PENDING, SUCCESS, FAILED, CANCELLED)
+-- - idempotency_key: 중복 요청 방지 키 (선택적)
 
 CREATE TABLE transactions (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '거래 고유 식별자',
     type ENUM('DEPOSIT', 'WITHDRAWAL', 'TRANSFER_OUT', 'TRANSFER_IN') NOT NULL COMMENT '거래 유형',
     amount DECIMAL(15,2) NOT NULL COMMENT '거래 금액',
     fee DECIMAL(15,2) DEFAULT NULL COMMENT '수수료 (이체 시)',
+    owner_account_id BIGINT NOT NULL COMMENT '거래 주체 계좌 ID (조회 최적화용)',
     from_account_id BIGINT DEFAULT NULL COMMENT '출금 계좌 ID',
     to_account_id BIGINT DEFAULT NULL COMMENT '입금 계좌 ID',
-    balance_after DECIMAL(15,2) NOT NULL COMMENT '거래 후 잔액',
+    balance_after DECIMAL(15,2) NOT NULL COMMENT '거래 후 잔액 (owner_account 기준)',
+    status ENUM('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED') NOT NULL DEFAULT 'SUCCESS' COMMENT '거래 상태',
+    idempotency_key VARCHAR(64) DEFAULT NULL COMMENT '멱등성 키 (중복 요청 방지)',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '거래 일시',
 
     PRIMARY KEY (id),
+    INDEX idx_owner_account (owner_account_id),
     INDEX idx_from_account (from_account_id),
     INDEX idx_to_account (to_account_id),
     INDEX idx_created_at (created_at),
+    UNIQUE INDEX idx_idempotency_key (idempotency_key),
 
+    CONSTRAINT fk_owner_account
+        FOREIGN KEY (owner_account_id) REFERENCES accounts(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_from_account
         FOREIGN KEY (from_account_id) REFERENCES accounts(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -69,6 +80,26 @@ CREATE TABLE transactions (
 -- 인덱스 설명
 -- =====================================================
 -- uk_account_number: 계좌번호 중복 방지 및 빠른 조회
+-- idx_owner_account: 특정 계좌의 거래 내역 조회 최적화 (핵심 인덱스)
 -- idx_from_account: 출금 계좌별 거래 내역 조회
 -- idx_to_account: 입금 계좌별 거래 내역 조회
 -- idx_created_at: 최신순 정렬 및 기간별 조회
+-- idx_idempotency_key: 중복 요청 방지 (유니크 인덱스)
+
+-- =====================================================
+-- 설계 포인트
+-- =====================================================
+-- 1. owner_account_id:
+--    - 기존 OR 조건 (from_account OR to_account) 대신 단일 컬럼으로 조회
+--    - 인덱스 최적화로 성능 향상
+--    - 이체 시 2개 레코드 생성 (TRANSFER_OUT: 출금자 owner, TRANSFER_IN: 수취자 owner)
+--
+-- 2. status:
+--    - 거래 상태 추적 (PENDING → SUCCESS/FAILED)
+--    - 취소 처리 지원 (CANCELLED)
+--    - 일일 한도 계산 시 SUCCESS 상태만 집계
+--
+-- 3. idempotency_key:
+--    - 클라이언트가 제공하는 고유 키
+--    - 네트워크 재시도 시 중복 거래 방지
+--    - 동일 키로 요청 시 기존 거래 결과 반환
