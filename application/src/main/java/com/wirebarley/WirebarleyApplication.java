@@ -1,13 +1,13 @@
-package com.wirebarleybackendassignment;
+package com.wirebarley;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class WirebarleyBackendAssignmentApplication {
+public class WirebarleyApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(WirebarleyBackendAssignmentApplication.class, args);
+        SpringApplication.run(WirebarleyApplication.class, args);
     }
 
 }
