@@ -6,6 +6,7 @@ import com.wirebarley.common.exception.BusinessException;
 import com.wirebarley.common.exception.ErrorCode;
 import com.wirebarley.transaction.dto.*;
 import com.wirebarley.transaction.entity.Transaction;
+import com.wirebarley.transaction.entity.TransactionStatus;
 import com.wirebarley.transaction.entity.TransactionType;
 import com.wirebarley.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +36,14 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse deposit(DepositRequest request) {
+        // 멱등성 체크
+        if (request.getIdempotencyKey() != null) {
+            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(request.getIdempotencyKey());
+            if (existing.isPresent()) {
+                return TransactionResponse.from(existing.get());
+            }
+        }
+
         Account account = accountRepository.findByAccountNumberWithLock(request.getAccountNumber())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
 
@@ -42,8 +52,11 @@ public class TransactionService {
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.DEPOSIT)
                 .amount(request.getAmount())
+                .ownerAccount(account)
                 .toAccount(account)
                 .balanceAfter(account.getBalance())
+                .status(TransactionStatus.SUCCESS)
+                .idempotencyKey(request.getIdempotencyKey())
                 .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
@@ -52,6 +65,14 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse withdraw(WithdrawRequest request) {
+        // 멱등성 체크
+        if (request.getIdempotencyKey() != null) {
+            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(request.getIdempotencyKey());
+            if (existing.isPresent()) {
+                return TransactionResponse.from(existing.get());
+            }
+        }
+
         Account account = accountRepository.findByAccountNumberWithLock(request.getAccountNumber())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
 
@@ -66,8 +87,11 @@ public class TransactionService {
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.WITHDRAWAL)
                 .amount(request.getAmount())
+                .ownerAccount(account)
                 .fromAccount(account)
                 .balanceAfter(account.getBalance())
+                .status(TransactionStatus.SUCCESS)
+                .idempotencyKey(request.getIdempotencyKey())
                 .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
@@ -76,10 +100,19 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse transfer(TransferRequest request) {
+        // 멱등성 체크
+        if (request.getIdempotencyKey() != null) {
+            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(request.getIdempotencyKey());
+            if (existing.isPresent()) {
+                return TransactionResponse.from(existing.get());
+            }
+        }
+
         if (request.getFromAccountNumber().equals(request.getToAccountNumber())) {
             throw new BusinessException(ErrorCode.SAME_ACCOUNT_TRANSFER);
         }
 
+        // 데드락 방지: 계좌번호 순서대로 락 획득
         String firstLock = request.getFromAccountNumber().compareTo(request.getToAccountNumber()) < 0
                 ? request.getFromAccountNumber() : request.getToAccountNumber();
         String secondLock = request.getFromAccountNumber().compareTo(request.getToAccountNumber()) < 0
@@ -105,21 +138,28 @@ public class TransactionService {
         fromAccount.withdraw(totalDeduction);
         toAccount.deposit(request.getAmount());
 
+        // 출금자 관점 거래 기록 (TRANSFER_OUT)
         Transaction outTransaction = Transaction.builder()
                 .type(TransactionType.TRANSFER_OUT)
                 .amount(request.getAmount())
                 .fee(fee)
+                .ownerAccount(fromAccount)
                 .fromAccount(fromAccount)
                 .toAccount(toAccount)
                 .balanceAfter(fromAccount.getBalance())
+                .status(TransactionStatus.SUCCESS)
+                .idempotencyKey(request.getIdempotencyKey())
                 .build();
 
+        // 수취자 관점 거래 기록 (TRANSFER_IN)
         Transaction inTransaction = Transaction.builder()
                 .type(TransactionType.TRANSFER_IN)
                 .amount(request.getAmount())
+                .ownerAccount(toAccount)
                 .fromAccount(fromAccount)
                 .toAccount(toAccount)
                 .balanceAfter(toAccount.getBalance())
+                .status(TransactionStatus.SUCCESS)
                 .build();
 
         transactionRepository.save(outTransaction);
@@ -132,7 +172,7 @@ public class TransactionService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
 
-        return transactionRepository.findByAccount(account, pageable)
+        return transactionRepository.findByOwnerAccountOrderByCreatedAtDesc(account, pageable)
                 .map(TransactionResponse::from);
     }
 
@@ -140,7 +180,7 @@ public class TransactionService {
         Account account = accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
 
-        return transactionRepository.findByAccount(account, pageable)
+        return transactionRepository.findByOwnerAccountOrderByCreatedAtDesc(account, pageable)
                 .map(TransactionResponse::from);
     }
 
@@ -148,7 +188,7 @@ public class TransactionService {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
 
-        BigDecimal dailyWithdrawal = transactionRepository.sumDailyAmountByAccountAndType(
+        BigDecimal dailyWithdrawal = transactionRepository.sumDailyAmountByOwnerAccountAndType(
                 account, TransactionType.WITHDRAWAL, startOfDay, endOfDay);
 
         if (dailyWithdrawal.add(amount).compareTo(DAILY_WITHDRAWAL_LIMIT) > 0) {
@@ -160,7 +200,7 @@ public class TransactionService {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
 
-        BigDecimal dailyTransfer = transactionRepository.sumDailyAmountByAccountAndType(
+        BigDecimal dailyTransfer = transactionRepository.sumDailyAmountByOwnerAccountAndType(
                 account, TransactionType.TRANSFER_OUT, startOfDay, endOfDay);
 
         if (dailyTransfer.add(amount).compareTo(DAILY_TRANSFER_LIMIT) > 0) {

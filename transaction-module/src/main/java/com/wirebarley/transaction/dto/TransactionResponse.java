@@ -1,6 +1,7 @@
 package com.wirebarley.transaction.dto;
 
 import com.wirebarley.transaction.entity.Transaction;
+import com.wirebarley.transaction.entity.TransactionStatus;
 import com.wirebarley.transaction.entity.TransactionType;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +20,7 @@ public class TransactionResponse {
     private String fromAccountNumber;
     private String toAccountNumber;
     private BigDecimal balanceAfter;
+    private TransactionStatus status;
     private LocalDateTime createdAt;
 
     public static TransactionResponse from(Transaction transaction) {
@@ -32,6 +34,7 @@ public class TransactionResponse {
                 .toAccountNumber(transaction.getToAccount() != null ?
                         transaction.getToAccount().getAccountNumber() : null)
                 .balanceAfter(transaction.getBalanceAfter())
+                .status(transaction.getStatus())
                 .createdAt(transaction.getCreatedAt())
                 .build();
     }

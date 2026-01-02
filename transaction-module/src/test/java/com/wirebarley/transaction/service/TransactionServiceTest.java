@@ -130,7 +130,7 @@ class TransactionServiceTest {
 
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.WITHDRAWAL), any(), any()))
                     .willReturn(BigDecimal.ZERO);
 
@@ -163,7 +163,7 @@ class TransactionServiceTest {
 
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.WITHDRAWAL), any(), any()))
                     .willReturn(BigDecimal.ZERO);
 
@@ -185,7 +185,7 @@ class TransactionServiceTest {
             // 이미 600,000원 출금한 상태
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.WITHDRAWAL), any(), any()))
                     .willReturn(new BigDecimal("600000"));
 
@@ -213,7 +213,7 @@ class TransactionServiceTest {
             // 이미 600,000원 출금한 상태 → 400,000 추가하면 딱 1,000,000원
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.WITHDRAWAL), any(), any()))
                     .willReturn(new BigDecimal("600000"));
 
@@ -264,7 +264,7 @@ class TransactionServiceTest {
                     .willReturn(Optional.of(testAccount2));
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.TRANSFER_OUT), any(), any()))
                     .willReturn(BigDecimal.ZERO);
 
@@ -328,7 +328,7 @@ class TransactionServiceTest {
                     .willReturn(Optional.of(testAccount2));
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.TRANSFER_OUT), any(), any()))
                     .willReturn(BigDecimal.ZERO);
 
@@ -353,7 +353,7 @@ class TransactionServiceTest {
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
             // 이미 2,500,000원 이체한 상태
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.TRANSFER_OUT), any(), any()))
                     .willReturn(new BigDecimal("2500000"));
 
@@ -384,7 +384,7 @@ class TransactionServiceTest {
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
             // 이미 2,000,000원 이체한 상태 → 1,000,000 추가하면 딱 3,000,000원
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.TRANSFER_OUT), any(), any()))
                     .willReturn(new BigDecimal("2000000"));
 
@@ -427,7 +427,7 @@ class TransactionServiceTest {
                     .willReturn(Optional.of(testAccount2));
             given(accountRepository.findByAccountNumberWithLock("1234567890"))
                     .willReturn(Optional.of(testAccount));
-            given(transactionRepository.sumDailyAmountByAccountAndType(
+            given(transactionRepository.sumDailyAmountByOwnerAccountAndType(
                     any(Account.class), eq(TransactionType.TRANSFER_OUT), any(), any()))
                     .willReturn(BigDecimal.ZERO);
 

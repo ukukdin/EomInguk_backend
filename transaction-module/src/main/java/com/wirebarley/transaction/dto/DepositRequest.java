@@ -20,9 +20,12 @@ public class DepositRequest {
     @DecimalMin(value = "1", message = "입금 금액은 1원 이상이어야 합니다.")
     private BigDecimal amount;
 
+    private String idempotencyKey;
+
     @Builder
-    public DepositRequest(String accountNumber, BigDecimal amount) {
+    public DepositRequest(String accountNumber, BigDecimal amount, String idempotencyKey) {
         this.accountNumber = accountNumber;
         this.amount = amount;
+        this.idempotencyKey = idempotencyKey;
     }
 }

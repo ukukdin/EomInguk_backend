@@ -11,21 +11,28 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    @Query("SELECT t FROM Transaction t WHERE t.fromAccount = :account OR t.toAccount = :account ORDER BY t.createdAt DESC")
-    Page<Transaction> findByAccount(@Param("account") Account account, Pageable pageable);
+    // ownerAccount 기반 조회 (인덱스 최적화)
+    Page<Transaction> findByOwnerAccountOrderByCreatedAtDesc(Account ownerAccount, Pageable pageable);
 
-    @Query("SELECT t FROM Transaction t WHERE t.fromAccount.id = :accountId OR t.toAccount.id = :accountId ORDER BY t.createdAt DESC")
-    Page<Transaction> findByAccountId(@Param("accountId") Long accountId, Pageable pageable);
+    Page<Transaction> findByOwnerAccountIdOrderByCreatedAtDesc(Long ownerAccountId, Pageable pageable);
 
+    // 멱등성 키로 중복 체크
+    boolean existsByIdempotencyKey(String idempotencyKey);
+
+    Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
+
+    // 일일 한도 계산 (ownerAccount 기반)
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
-            "WHERE t.fromAccount = :account " +
+            "WHERE t.ownerAccount = :account " +
             "AND t.type = :type " +
+            "AND t.status = 'SUCCESS' " +
             "AND t.createdAt >= :startOfDay " +
             "AND t.createdAt < :endOfDay")
-    BigDecimal sumDailyAmountByAccountAndType(
+    BigDecimal sumDailyAmountByOwnerAccountAndType(
             @Param("account") Account account,
             @Param("type") TransactionType type,
             @Param("startOfDay") LocalDateTime startOfDay,

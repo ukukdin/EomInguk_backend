@@ -14,9 +14,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions", indexes = {
+        @Index(name = "idx_transaction_owner_account", columnList = "owner_account_id"),
         @Index(name = "idx_transaction_from_account", columnList = "from_account_id"),
         @Index(name = "idx_transaction_to_account", columnList = "to_account_id"),
-        @Index(name = "idx_transaction_created_at", columnList = "createdAt")
+        @Index(name = "idx_transaction_created_at", columnList = "createdAt"),
+        @Index(name = "idx_transaction_idempotency_key", columnList = "idempotencyKey")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,6 +40,10 @@ public class Transaction {
     private BigDecimal fee;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_account_id", nullable = false)
+    private Account ownerAccount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "from_account_id")
     private Account fromAccount;
 
@@ -48,18 +54,29 @@ public class Transaction {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal balanceAfter;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TransactionStatus status;
+
+    @Column(length = 64, unique = true)
+    private String idempotencyKey;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     public Transaction(TransactionType type, BigDecimal amount, BigDecimal fee,
-                       Account fromAccount, Account toAccount, BigDecimal balanceAfter) {
+                       Account ownerAccount, Account fromAccount, Account toAccount,
+                       BigDecimal balanceAfter, TransactionStatus status, String idempotencyKey) {
         this.type = type;
         this.amount = amount;
         this.fee = fee;
+        this.ownerAccount = ownerAccount;
         this.fromAccount = fromAccount;
         this.toAccount = toAccount;
         this.balanceAfter = balanceAfter;
+        this.status = status != null ? status : TransactionStatus.SUCCESS;
+        this.idempotencyKey = idempotencyKey;
     }
 }

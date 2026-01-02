@@ -37,6 +37,10 @@
 - 특정 계좌의 모든 거래내역을 확인할 수 있습니다.
 - 가장 최근 거래부터 순서대로 보여줍니다.
 
+### 멱등성 지원
+- 모든 거래 API에서 `idempotencyKey`를 통해 중복 요청을 방지할 수 있습니다.
+- 네트워크 오류로 인한 재시도 시에도 안전하게 처리됩니다.
+
 ---
 
 ## 실행 방법
@@ -107,7 +111,7 @@ docker-compose down -v
 요청:
 ```json
 {
-  "accountNumber": "1234-5678-9012",
+  "accountNumber": "1234567890",
   "accountHolder": "홍길동"
 }
 ```
@@ -116,7 +120,7 @@ docker-compose down -v
 ```json
 {
   "id": 1,
-  "accountNumber": "1234-5678-9012",
+  "accountNumber": "1234567890",
   "accountHolder": "홍길동",
   "balance": 0
 }
@@ -137,10 +141,13 @@ docker-compose down -v
 요청:
 ```json
 {
-  "accountNumber": "1234-5678-9012",
-  "amount": 100000
+  "accountNumber": "1234567890",
+  "amount": 100000,
+  "idempotencyKey": "deposit-001"
 }
 ```
+
+> `idempotencyKey`는 선택 필드입니다. 중복 요청 방지가 필요한 경우 사용하세요.
 
 응답:
 ```json
@@ -148,8 +155,11 @@ docker-compose down -v
   "id": 1,
   "type": "DEPOSIT",
   "amount": 100000,
-  "fee": 0,
+  "fee": null,
+  "fromAccountNumber": null,
+  "toAccountNumber": "1234567890",
   "balanceAfter": 100000,
+  "status": "SUCCESS",
   "createdAt": "2024-01-02T10:30:00"
 }
 ```
@@ -159,8 +169,24 @@ docker-compose down -v
 요청:
 ```json
 {
-  "accountNumber": "1234-5678-9012",
-  "amount": 50000
+  "accountNumber": "1234567890",
+  "amount": 50000,
+  "idempotencyKey": "withdraw-001"
+}
+```
+
+응답:
+```json
+{
+  "id": 2,
+  "type": "WITHDRAWAL",
+  "amount": 50000,
+  "fee": null,
+  "fromAccountNumber": "1234567890",
+  "toAccountNumber": null,
+  "balanceAfter": 50000,
+  "status": "SUCCESS",
+  "createdAt": "2024-01-02T10:32:00"
 }
 ```
 
@@ -169,9 +195,10 @@ docker-compose down -v
 요청:
 ```json
 {
-  "fromAccountNumber": "1234-5678-9012",
-  "toAccountNumber": "9876-5432-1098",
-  "amount": 10000
+  "fromAccountNumber": "1234567890",
+  "toAccountNumber": "0987654321",
+  "amount": 10000,
+  "idempotencyKey": "transfer-001"
 }
 ```
 
@@ -182,7 +209,10 @@ docker-compose down -v
   "type": "TRANSFER_OUT",
   "amount": 10000,
   "fee": 100,
+  "fromAccountNumber": "1234567890",
+  "toAccountNumber": "0987654321",
   "balanceAfter": 39900,
+  "status": "SUCCESS",
   "createdAt": "2024-01-02T10:35:00"
 }
 ```
@@ -245,6 +275,7 @@ wirebarley-backend-assignment/
 - 출금: 1일 최대 1,000,000원
 - 이체: 1일 최대 3,000,000원
 - 한도는 매일 자정에 초기화됩니다.
+- 한도 계산 시 성공(SUCCESS) 상태의 거래만 집계됩니다.
 
 ### 수수료
 - 이체 시 이체 금액의 1%가 수수료로 부과됩니다.
@@ -255,5 +286,23 @@ wirebarley-backend-assignment/
 - 잔액이 남아있는 계좌는 삭제할 수 없습니다.
 - 삭제 전 잔액을 모두 출금하거나 이체해야 합니다.
 
+### 멱등성 (Idempotency)
+- 모든 거래 API는 `idempotencyKey` 필드를 지원합니다.
+- 동일한 `idempotencyKey`로 재요청 시 새 거래를 생성하지 않고 기존 결과를 반환합니다.
+- 네트워크 오류 등으로 응답을 받지 못한 경우 안전하게 재시도할 수 있습니다.
+- 예시:
+  ```json
+  {
+    "accountNumber": "1234567890",
+    "amount": 100000,
+    "idempotencyKey": "unique-request-id-12345"
+  }
+  ```
+
+### 거래 상태 (Transaction Status)
+- `PENDING`: 처리 중
+- `SUCCESS`: 성공
+- `FAILED`: 실패
+- `CANCELLED`: 취소
+
 ---
-.
